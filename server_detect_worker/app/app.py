@@ -2,11 +2,10 @@ import pika
 import pika.exceptions
 import requests
 from requests.exceptions import HTTPError
-import random, string
 import socket
+import random, string, json
 import app_config
 from rabbitmq_sender import rabbitmq_sender
-import json
 from apscheduler.schedulers.background import BackgroundScheduler
 
 
@@ -86,7 +85,7 @@ def check_server_type(server_type, host):
 
 
 def callback(ch, method, properties, body):
-    #call back function for job queue
+    # call back function for job queue
     try:
         print(" [x] Received %r" % body)
         r_message = json.loads(body)
@@ -133,8 +132,6 @@ connection = pika.BlockingConnection(
 channel = connection.channel()
 # job que listener
 
-    
-
 channel.queue_declare(queue=app_config.queue_name_to_detect, durable=True)
 #attaches to job queue
 print(' [*] Waiting for messages. To exit press CTRL+C')
@@ -146,7 +143,7 @@ channel.basic_qos(prefetch_count=1)
 channel.basic_consume(queue=app_config.queue_name_to_detect, on_message_callback=callback)
 
 scheduler = BackgroundScheduler()
-# create schedular to check connection woth rabbitmq so that it won't closed
+# create schedular to check connection woth rabbitmq so that connection won't get closed
 scheduler.add_job(func=establish_connection, args=[connection], trigger='interval', seconds=60)
 scheduler.start()
 
