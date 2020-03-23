@@ -1,0 +1,41 @@
+---
+version: "3.7"
+
+services:
+  gateway:
+    build: ./gateway
+    restart: on-failure
+    depends_on:
+      - rabbitmq
+    ports:
+      - "5000:5000"
+    networks:
+      - server_detect_net
+    
+      
+  rabbitmq:
+    image: rabbitmq:3.7.8-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    networks:
+      - server_detect_net
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 5s
+      timeout: 15s
+      retries: 1
+
+  worker:
+    build: ./server_detect_worker
+    restart: on-failure
+    depends_on:
+      - gateway
+      - rabbitmq
+    networks:
+      - server_detect_net
+
+networks:
+  server_detect_net: 
+    driver: bridge
+

@@ -2,12 +2,12 @@ import pika
 import pika.exceptions
 import requests
 from requests.exceptions import HTTPError
-import socket
+import sys, socket
 import random, string, json
 import app_config
-from rabbitmq_sender import rabbitmq_sender
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from utils.sleep_timeout import sleep_timeout
+from utils.rabbitmq_client import rabbitmq_client
 
 def find_server_type_in_body(server_type, response):
     return (response.text.find(server_type) != -1)
@@ -16,7 +16,8 @@ def find_server_type_in_header(server_type ,response):
     return server_type in response.headers['Server']
 
 def create_url(url):
-    return "https://" + url
+    # handles host names with "https://" front
+    return "https://" + url if (url.find("https://") == -1) else url
 
 def create_bad_url(url, i):
     #single % generally returns bad request, initial 
@@ -82,36 +83,6 @@ def check_server_type(server_type, host):
                 env['ip'] = socket.gethostbyname(host)
                 env['server_type'] = server_type
     return env
-
-
-def callback(ch, method, properties, body):
-    # call back function for job queue
-    try:
-        print(" [x] Received %r" % body)
-        r_message = json.loads(body)
-        host_name = r_message['host']
-        server_type = r_message['server_type']
-        data = check_server_type(server_type, host_name)
-        #creates job message object
-        print(" [x] Done")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-        print(" [x] Ack")
-        message_not_send = True
-        while(message_not_send):
-            try:
-                sender.send_messeage_channel(data, r_message['requestid'])
-                message_not_send = False
-                # send message response in a queue
-                # only created for the request responses so that 
-                # collector always get its own messages
-                print(" [x] Send")
-            except pika.exceptions.AMQPConnectionError:
-                sender.reconnect()
-                continue
-            except Exception as err:
-                print("Error during message send:" + err + " message body: "+ data)
-    except:
-        print('message error: expected field is not in the message')
     
 def establish_connection(connection):
     try:
@@ -124,29 +95,70 @@ def establish_connection(connection):
     except Exception as err:
         print("Error during mestablishing connection. " + err)
 
-sender = rabbitmq_sender(app_config.network)
-    #create publisher for processed jobs
+def main():
+    try:
+        with rabbitmq_client(app_config.network) as sender:
+         #create publisher for processed jobs
 
-connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=app_config.network))
-channel = connection.channel()
-# job que listener
 
-channel.queue_declare(queue=app_config.queue_name_to_detect, durable=True)
-#attaches to job queue
-print(' [*] Waiting for messages. To exit press CTRL+C')
-channel.basic_qos(prefetch_count=1)
-# sets message consume limit for single transaction for workers
-# so that jobs can be pickedup by other workers while the initial
-# worker doing its job, then it can get more if there is any
+            def callback(ch, method, properties, body):
+                # call back function for job queue
+                try:
 
-channel.basic_consume(queue=app_config.queue_name_to_detect, on_message_callback=callback)
+                    print(" [x] Received %r" % body)
+                    r_message = json.loads(body)
+                    host_name = r_message['host']
+                    server_type = r_message['server_type']
+                    try:
+                        data = check_server_type(server_type, host_name)
+                    except:
+                        date = {'host':host_name, 'ip': '', 'server_type':''}
+                    #ignores bad urls, but sends result back to balance the message numbers
+                    print(" [x] Done")
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    print(" [x] Ack")
+                    message_not_send = True
+                    while(message_not_send):
+                        try:
+                            sender.send_messeage_channel(data, r_message['requestid'])
+                            message_not_send = False
+                            # send message response in a queue
+                            # only created for the request responses so that 
+                            # collector always get its own messages
+                            print(" [x] Send")
+                        except pika.exceptions.AMQPConnectionError:
+                            sender.reconnect()
+                            continue
+                        except Exception as err:
+                            print("Error during message send:" + err + " message body: "+ data)
+                except:
+                    print('message error: expected field is not in the message')
+                    
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=app_config.network))
+            channel = connection.channel()
+            # job que listener
 
-scheduler = BackgroundScheduler()
-# create schedular to check connection woth rabbitmq so that connection won't get closed
-scheduler.add_job(func=establish_connection, args=[connection], trigger='interval', seconds=60)
-scheduler.start()
+            channel.queue_declare(queue=app_config.queue_name_to_detect, durable=True)
+            #attaches to job queue
+            print(' [*] Waiting for messages. To exit press CTRL+C')
+            channel.basic_qos(prefetch_count=1)
+            # sets message consume limit for single transaction for workers
+            # so that jobs can be pickedup by other workers while the initial
+            # worker doing its job, then it can get more if there is any
+            channel.basic_consume(queue=app_config.queue_name_to_detect, 
+                            on_message_callback= callback)
 
-channel.start_consuming()
-# start consumption
+            scheduler = BackgroundScheduler()
+            # create schedular to check connection woth rabbitmq so that connection won't get closed
+            # rabbitmq closes connection in 60 if there is not heartbeat
+            scheduler.add_job(func=establish_connection, args=[connection], trigger='interval', seconds=58)
+            scheduler.start()
 
+            channel.start_consuming()
+            # start consumption
+
+            
+    except Exception as err:
+        sys.exit(err)
+main()

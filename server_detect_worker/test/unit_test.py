@@ -1,4 +1,4 @@
-from app.app import  app
+from ..app import app
 import random, string
 
 class mock_response:  
@@ -26,8 +26,6 @@ def find_server_type_in_header_false():
     server_type = 'test_server' 
     response = mock_response({'asd':'asd'},'not_test_server', 200)
     assert app.find_server_type_in_header(server_type, response) == False
-
-
 
 def generate_random_word(length):
     letters = string.ascii_lowercase

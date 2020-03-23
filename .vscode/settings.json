@@ -1,4 +1,4 @@
 {
-    "python.pythonPath": "/Users/ahmetguzererler/anaconda3/envs/worker/bin/python",
+    "python.pythonPath": "/Users/ahmetguzererler/opt/anaconda3/envs/server_detector/bin/python",
     "python.linting.enabled": true
 }
