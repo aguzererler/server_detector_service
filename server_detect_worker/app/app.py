@@ -72,16 +72,18 @@ def check_server_type(server_type, host):
     # creates return message object
     is_server_type = check_server_type_from_response(response, server_type, host)
     #checks the result of the normal url
+    is_server = False
     if is_server_type == True:
-        env['ip'] = socket.gethostbyname(host)
-        env['server_type'] = server_type
+        is_server = True
     elif is_server_type is None :
         # bad response needs to be checked
         bad_response = generate_bad_reponse(host, 3)
         if bad_response is not None:
             if check_server_type_from_response(bad_response, server_type, host):
-                env['ip'] = socket.gethostbyname(host)
-                env['server_type'] = server_type
+                is_server = True
+    if is_server:
+        env['ip'] = socket.gethostbyname(host)
+        env['server_type'] = server_type
     return env
     
 def establish_connection(connection):
@@ -99,46 +101,31 @@ def main():
     try:
         with rabbitmq_client(app_config.network) as sender:
          #create publisher for processed jobs
-
-
+        
             def callback(ch, method, properties, body):
-                # call back function for job queue
+            # call back function for job queue
                 try:
-
                     print(" [x] Received %r" % body)
                     r_message = json.loads(body)
                     host_name = r_message['host']
                     server_type = r_message['server_type']
+                    data = {'host':host_name, 'ip': '', 'server_type':''} #typo
                     try:
                         data = check_server_type(server_type, host_name)
                     except:
-                        date = {'host':host_name, 'ip': '', 'server_type':''}
+                        pass
                     #ignores bad urls, but sends result back to balance the message numbers
                     print(" [x] Done")
                     ch.basic_ack(delivery_tag=method.delivery_tag)
                     print(" [x] Ack")
-                    message_not_send = True
-                    while(message_not_send):
-                        try:
-                            sender.send_messeage_channel(data, r_message['requestid'])
-                            message_not_send = False
-                            # send message response in a queue
-                            # only created for the request responses so that 
-                            # collector always get its own messages
-                            print(" [x] Send")
-                        except pika.exceptions.AMQPConnectionError:
-                            sender.reconnect()
-                            continue
-                        except Exception as err:
-                            print("Error during message send:" + err + " message body: "+ data)
+                    sender.send_messeage_channel(data, r_message['requestid'])
                 except:
                     print('message error: expected field is not in the message')
-                    
+
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host=app_config.network))
             channel = connection.channel()
             # job que listener
-
             channel.queue_declare(queue=app_config.queue_name_to_detect, durable=True)
             #attaches to job queue
             print(' [*] Waiting for messages. To exit press CTRL+C')

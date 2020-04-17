@@ -29,14 +29,27 @@ class rabbitmq_client:
 
     def send_messeage_channel(self, message, p_routing_key):
         # declares channel and send/publish messages on that queue
-        self.channel.queue_declare(queue=p_routing_key, durable=True)
-        self.channel.basic_publish(exchange='',
-                            routing_key=p_routing_key,
-                            body=json.dumps(message),
-                            properties=pika.BasicProperties(
-                                delivery_mode = 2,
-                            ))
-
+        message_not_send = True
+        while(message_not_send):
+            try:
+                self.channel.queue_declare(queue=p_routing_key, durable=True)
+                self.channel.basic_publish(exchange='',
+                                    routing_key=p_routing_key,
+                                    body=json.dumps(message),
+                                    properties=pika.BasicProperties(
+                                    delivery_mode = 2,
+                                    ))
+                message_not_send = False
+                # send message response in a queue
+                # only created for the request responses so that 
+                # collector always get its own messages
+                print(" [x] Send")
+            except pika.exceptions.AMQPConnectionError:
+                self.reconnect()
+                continue
+            except Exception as err:
+                print("Error during message send:" + err + " message body: "+ message)
+        
     def purge_queue(self):
         self.channel.queue_purge(queue=self.routing_key)
 

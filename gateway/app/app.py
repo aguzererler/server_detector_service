@@ -26,7 +26,7 @@ def detect_server():
         else:
             return "wrong input: \" server_type\"  is missing", status.HTTP_400_BAD_REQUEST
     else:
-        return "wrong input format"
+        return "wrong input format", status.HTTP_400_BAD_REQUEST #forgotten...
     #create reciver connection and wait for messeges
     return ""
 
@@ -99,7 +99,7 @@ def collect_messages(requestid, no_messages):
                     m_counter = m_counter + 1
                     reciever.ack(method_frame.delivery_tag)
                     if r_message['server_type'] != '':
-                        # add messages ith server type assigned to output collector
+                        # add messages with server type assigned to output collector
                         # null server type means that server type is not 
                         # detected as desired server type
                         ip_a = [r_message['ip']]

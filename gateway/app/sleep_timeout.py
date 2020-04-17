@@ -10,7 +10,7 @@ class sleep_timeout:
     :param str timeout_message: Message for timeout exception
     """
     def __init__(self, timeout_duration, sleep_duration, timeout_message):
-        self.counter = 0
+        self.counter = 0 #should be gone
         self.timeout_duration =  timeout_duration
         self.sleep_duration = sleep_duration
         self.timeout_time = time.time() + timeout_duration
@@ -23,7 +23,8 @@ class sleep_timeout:
             raise Exception(self.timeout_message)
     
     def reset(self):
-        self.counter = 0
+        self.counter = 0 #should be gone 
+        self.timeout_time = time.time() + timeout_duration
         
     def check_constraints(self):
         if self.timeout_duration < self.sleep_duration:
