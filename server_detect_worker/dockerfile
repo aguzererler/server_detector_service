@@ -11,5 +11,4 @@ RUN pip install -r requirements.txt
 # Bundle app source
 COPY app /app
 
-EXPOSE 5000
-CMD [ "python", "app.py" ]
+CMD [ "python", "app.py", "-c", "start"]

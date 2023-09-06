@@ -1,5 +1,5 @@
-import pika
-import pika.exceptions
+import getopt
+import pika, pika.exceptions
 import requests
 from requests.exceptions import HTTPError
 import sys, socket
@@ -13,7 +13,10 @@ def find_server_type_in_body(server_type, response):
     return (response.text.find(server_type) != -1)
 
 def find_server_type_in_header(server_type ,response):
-    return server_type in response.headers['Server']
+    try:
+        return server_type in response.headers['Server']
+    except:
+        return None
 
 def create_url(url):
     # handles host names with "https://" front
@@ -148,4 +151,22 @@ def main():
             
     except Exception as err:
         sys.exit(err)
-main()
+
+arguments = sys.argv[1:]
+options = 'hc:'
+long_options = ['Help', 'Command']
+try:
+    # Parsing argument
+    arguments, values = getopt.getopt(arguments, options, long_options)
+     
+    # checking each argument
+    for arg, val in arguments:
+ 
+        if arg in ("-h", "--Help"):
+            print ('write \"-c start\" to start the worker')
+        elif arg in ("-c", "--Command"):
+            if val == "start":
+                main()
+             
+except getopt.error as err:
+    print (str(err))

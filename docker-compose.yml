@@ -8,7 +8,7 @@ services:
     depends_on:
       - rabbitmq
     ports:
-      - "5000:5000"
+      - "5080:5000"
     networks:
       - server_detect_net
     

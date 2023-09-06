@@ -1,8 +1,8 @@
 from flask import Flask
 from flask import request
 from flask_api import status
-import json, time
-import uuid, string, random
+import json
+import uuid
 from utils.sleep_timeout import sleep_timeout
 from utils.rabbitmq_client import rabbitmq_client
 import app_config
